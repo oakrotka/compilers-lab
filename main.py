@@ -4,11 +4,12 @@ from parser import Mparser
 
 def print_parser(p):
     block = False
-    if p[0] == 'statement_list':
+
+    if type(p) == tuple and p[0] == 'statement_list':
         print('statement list:')
         block = True
 
-    while p[0] == 'statement_list':
+    while type(p) == tuple and p[0] == 'statement_list':
         print_parser(p[1])
         p = p[2]
 
@@ -18,8 +19,8 @@ def print_parser(p):
 
 def run(code, lexer, parser):
     tokens = list(lexer.tokenize(code))
-    for tok in tokens:
-        print(f"({tok.lineno}): {tok.type}({tok.value})")
+    # for tok in tokens:
+    #     print(f"({tok.lineno}): {tok.type}({tok.value})")
 
     result = parser.parse(t for t in tokens)
     print_parser(result)

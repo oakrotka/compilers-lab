@@ -4,7 +4,7 @@ from lexer import MLexer
 class Mparser(Parser):
     tokens = MLexer.tokens
 
-    debugfile = 'parser.out'
+    # debugfile = 'parser.out'
 
     precedence = (
         ('nonassoc', IFX),
@@ -16,9 +16,7 @@ class Mparser(Parser):
         ('left', DOTMUL, DOTDIV),
         ('left', '*', '/'),
         ('right', UMINUS),
-        ('nonassoc', 'double_index'),
-        ('left', 'single_index'),
-        ('nonassoc', 'matrix_declaration'),
+        ('left', UTRANSPOSE),
     )
 
     # general statement forms
@@ -30,7 +28,7 @@ class Mparser(Parser):
     def statement_list(self, p):
         return p.statement
 
-    @_('expr ";"', 'assign ";"', 'instruction ";"', 'named_block')
+    @_('assign ";"', 'instruction ";"', 'named_block')
     def statement(self, p):
         return p[0]
 
@@ -72,52 +70,85 @@ class Mparser(Parser):
     def assign(self, p):
         return (p.assigner, p.asignee, p.expr)
 
-    @_('ID', 'index')
+    @_('ID')
     def asignee(self, p):
         return p[0]
+
+    @_('ID index_bracket')
+    def asignee(self, p):
+        return ('index', p.ID, p.index_bracket)
 
     @_('"="', 'ADDASSIGN', 'SUBASSIGN', 'MULASSIGN', 'DIVASSIGN')
     def assigner(self, p):
         return p[0]
 
+    # helper constructs
+    @_('"[" indexer "]"')
+    def index_bracket(self, p):
+        return ('index_array', p.indexer)
+
+    @_('"[" indexer "," indexer "]"')
+    def index_bracket(self, p):
+        return ('index_matrix', p[1], p[3])
+
+    @_('expr', 'range_expr')
+    def indexer(self, p):
+        return p[0]
+
+    @_('expr "," varlist')
+    def varlist(self, p):
+        return ('varlist', p.expr, p.varlist)
+
+    @_('expr', 'expr ","')
+    def varlist(self, p):
+        return p.expr
+
     # expressions
-    @_('binary', 'index')
+    @_('expr index_bracket')
     def expr(self, p):
-        return p.binary
+        return ('index', p.expr, p.index_bracket)
 
-    @_('binary "+" negation',    'binary "-" negation',
-       'binary "*" negation',    'binary "/" negation',
-       'binary "<" negation',    'binary ">" negation',
-       'binary DOTADD negation', 'binary DOTSUB negation',
-       'binary DOTMUL negation', 'binary DOTDIV negation',
-       'binary LE negation',     'binary GE negation',
-       'binary NE negation',     'binary EQ negation')
+    @_('binary')
+    def expr(self, p):
+        return p[0]
+
+    @_('binary binary_operator unary')
     def binary(self, p):
-        return (p[1], p.binary, p.negation)
+        return (p[1], p[0], p[2])
 
-    @_('negation')
+    @_('unary')
     def binary(self, p):
-        return p.negation
+        return p.unary
 
-    @_('"-" transposition %prec UMINUS')
-    def negation(self, p):
-        return ('-', p.transposition)
+    @_('"+"', '"-"', '"*"', '"/"', '"<"', '">"',
+       'DOTADD', 'DOTSUB', 'DOTMUL', 'DOTDIV',
+       'LE', 'GE', 'NE', 'EQ')
+    def binary_operator(self, p):
+        return p[0]
 
-    @_('transposition')
-    def negation(self, p):
-        return p.transposition
+    @_('"-" unary %prec UMINUS')
+    def unary(self, p):
+        return ('-', p.unary)
 
-    @_('transposition "\'"')  # more than one transposition at a time, why not
-    def transposition(self, p):
-        return ('\'', p.transposition)
+    @_('unary "\'" %prec UTRANSPOSE')
+    def unary(self, p):
+        return ('\'', p.unary)
 
     @_('primary')
-    def transposition(self, p):
+    def unary(self, p):
         return p.primary
 
-    @_('ID', 'INTNUM', 'FLOATNUM', 'STRING')
+    @_('INTNUM', 'FLOATNUM')
     def primary(self, p):
-        return (p[0],)
+        return ('num', p[0])
+
+    @_('ID')
+    def primary(self, p):
+        return ('id', p.ID)
+
+    @_('STRING')
+    def primary(self, p):
+        return ('string', p[0])
 
     @_('"(" expr ")"')
     def primary(self, p):
@@ -127,23 +158,11 @@ class Mparser(Parser):
     def primary(self, p):
         return (p[0], p.expr)
 
-    @_('"[" matrix "]" %prec matrix_declaration')
+    @_('"[" matrix "]"')
     def primary(self, p):
         return p.matrix
 
-    @_('expr "[" indexer "," indexer "]" %prec double_index')
-    def index(self, p):
-        return ('index_matrix', p.expr, p[2], p[4])
-
     # other expressions
-    @_('expr "[" indexer "]" %prec single_index')
-    def index(self, p):
-        return ('index_array', p.expr, p.indexer)
-
-    @_('expr', 'range_expr')
-    def indexer(self, p):
-        return p[0]
-
     @_('expr ":" expr')
     def range_expr(self, p):
         return (p[1], p[0], p[2])
@@ -151,16 +170,8 @@ class Mparser(Parser):
     # matrix initialization
     @_('varlist ";" matrix')
     def matrix(self, p):
-        return ('matrix', p.varlist, p.matrix)
+        return ('matline', p.varlist, p.matrix)
 
     @_('varlist', 'varlist ";"')
     def matrix(self, p):
-        return ('varlist', p.varlist, None)
-
-    @_('expr "," varlist')
-    def varlist(self, p):
-        return ('varlist', p.expr, p.varlist)
-
-    @_('expr', 'expr ","')
-    def varlist(self, p):
-        return p.expr
+        return ('matline', p.varlist, None)
