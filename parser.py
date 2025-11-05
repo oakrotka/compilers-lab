@@ -66,23 +66,27 @@ class Mparser(Parser):
     def instruction(self, p):
         return (p[0], p.varlist)
 
-    @_('asignee assigner expr')
+    @_('assignee assigner expr')
     def assign(self, p):
-        return (p.assigner, p.asignee, p.expr)
+        return (p.assigner, p.assignee, p.expr)
 
     @_('ID')
-    def asignee(self, p):
+    def assignee(self, p):
         return p[0]
 
     @_('ID index_bracket')
-    def asignee(self, p):
+    def assignee(self, p):
         return ('index', p.ID, p.index_bracket)
 
     @_('"="', 'ADDASSIGN', 'SUBASSIGN', 'MULASSIGN', 'DIVASSIGN')
     def assigner(self, p):
         return p[0]
 
-    # helper constructs
+    # helper/misc constructs
+    @_('expr ":" expr')
+    def range_expr(self, p):
+        return (p[1], p[0], p[2])
+
     @_('"[" indexer "]"')
     def index_bracket(self, p):
         return ('index_array', p.indexer)
@@ -161,11 +165,6 @@ class Mparser(Parser):
     @_('"[" matrix "]"')
     def primary(self, p):
         return p.matrix
-
-    # other expressions
-    @_('expr ":" expr')
-    def range_expr(self, p):
-        return (p[1], p[0], p[2])
 
     # matrix initialization
     @_('varlist ";" matrix')
