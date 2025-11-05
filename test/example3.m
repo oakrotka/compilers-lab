@@ -8,6 +8,11 @@ if(N==10)
 else if(N!=10)
     print "N!=10";
 
+if(N<10)
+  if(N==5)
+    print "N==5";
+  else
+    print "N<10 and N!=5";
 
 if(N>5) {
     print "N>5";

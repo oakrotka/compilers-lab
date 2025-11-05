@@ -1,5 +1,4 @@
 # special functions, initializations
-2e-5
 
 A = zeros(5);  # create 5x5 matrix filled with zeros
 B = ones(7);   # create 7x7 matrix filled with ones

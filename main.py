@@ -2,13 +2,41 @@ import sys
 from lexer import MLexer
 from parser import Mparser
 
+def print_parser(p):
+    block = False
+    if p[0] == 'statement_list':
+        print('statement list:')
+        block = True
+
+    while p[0] == 'statement_list':
+        print_parser(p[1])
+        p = p[2]
+
+    print(p)
+    if block:
+        print('end of statement list')
+
+def run(code, lexer, parser):
+    tokens = list(lexer.tokenize(code))
+    for tok in tokens:
+        print(f"({tok.lineno}): {tok.type}({tok.value})")
+
+    result = parser.parse(t for t in tokens)
+    print_parser(result)
+
 
 if __name__ == '__main__':
     lexer = MLexer()
     parser = Mparser()
 
-    filename = sys.argv[1] if len(sys.argv) > 1 else "example.txt"
-    with open(filename, "r") as file:
-        text = file.read()
-
-    parser.parse(lexer.tokenize(text))
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+        with open(filename, "r") as file:
+            code = file.read()
+        run(code, lexer, parser)
+    else:
+        while True:
+            try:
+                run(input('M> '), lexer, parser)
+            except EOFError:
+                break
