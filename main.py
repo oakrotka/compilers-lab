@@ -1,6 +1,7 @@
 import sys
 from lexer import MLexer
 from parser import Mparser
+import TreePrinter
 
 def print_parser(p):
     block = False
@@ -13,9 +14,7 @@ def print_parser(p):
         print_parser(p[1])
         p = p[2]
 
-    print(p)
-    if block:
-        print('end of statement list')
+    p.printTree()
 
 def run(code, lexer, parser):
     tokens = list(lexer.tokenize(code))

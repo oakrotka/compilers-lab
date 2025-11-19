@@ -1,6 +1,8 @@
 from sly import Parser
 from lexer import MLexer
 
+import AST
+
 class Mparser(Parser):
     tokens = MLexer.tokens
 
@@ -20,21 +22,21 @@ class Mparser(Parser):
     )
 
     # general statement forms
-    @_('statement statement_list')
-    def statement_list(self, p):
-        return ('statement_list', p.statement, p.statement_list)
+    @_('statement block')
+    def block(self, p):
+        return AST.Block(p.statement, p.block)
 
     @_('statement')
-    def statement_list(self, p):
-        return p.statement
+    def block(self, p):
+        return AST.Block(p.statement)
 
     @_('assign ";"', 'instruction ";"', 'named_block')
     def statement(self, p):
         return p[0]
 
-    @_('"{" statement_list "}"')
+    @_('"{" block "}"')
     def statement(self, p):
-        return p.statement_list
+        return p.block
 
     # loops etc
     @_('while_loop', 'for_loop', 'if_stmt')
@@ -43,40 +45,48 @@ class Mparser(Parser):
 
     @_('WHILE "(" expr ")" statement')
     def while_loop(self, p):
-        return (p.WHILE, p.expr, p.statement)
+        return AST.WhileLoop(p.expr, p.statement)
 
     @_('FOR ID "=" range_expr statement')
     def for_loop(self, p):
-        return (p.FOR, p.ID, p.range_expr, p.statement)
+        return AST.ForLoop(AST.Variable(p.ID), p.range_expr, p.statement)
 
     @_('IF "(" expr ")" statement %prec IFX')
     def if_stmt(self, p):
-        return (p.IF, p.expr, p.statement, None)
+        return AST.Conditional(p.expr, p.statement)
 
     @_('IF "(" expr ")" statement ELSE statement')
     def if_stmt(self, p):
-        return (p.IF, p.expr, p[4], p[6])
+        return AST.Conditional(p.expr, p[4], p[6])
 
     # instructions
-    @_('BREAK', 'CONTINUE')
+    @_('BREAK')
     def instruction(self, p):
-        return (p[0],)
+        return AST.BreakStatement()
 
-    @_('PRINT varlist', 'RETURN varlist')
+    @_('CONTINUE')
     def instruction(self, p):
-        return (p[0], p.varlist)
+        return AST.ContinueStatement()
+
+    @_('RETURN')
+    def instruction(self, p):
+        return AST.ReturnStatement()
+
+    @_('PRINT varlist')
+    def instruction(self, p):
+        return AST.PrintStatement(p.varlist)
 
     @_('assignee assigner expr')
     def assign(self, p):
-        return (p.assigner, p.assignee, p.expr)
+        return AST.Assignment(p.assigner, p.assignee, p.expr)
 
     @_('ID')
     def assignee(self, p):
-        return p[0]
+        return AST.Variable(p.ID)
 
     @_('ID index_bracket')
     def assignee(self, p):
-        return ('index', p.ID, p.index_bracket)
+        return AST.Ref(AST.Variable(p.ID), p.index_bracket)
 
     @_('"="', 'ADDASSIGN', 'SUBASSIGN', 'MULASSIGN', 'DIVASSIGN')
     def assigner(self, p):
@@ -85,15 +95,15 @@ class Mparser(Parser):
     # helper/misc constructs
     @_('expr ":" expr')
     def range_expr(self, p):
-        return (p[1], p[0], p[2])
+        return AST.Range(p[0], p[2])
 
     @_('"[" indexer "]"')
     def index_bracket(self, p):
-        return ('index_array', p.indexer)
+        return AST.Index(p.indexer)
 
     @_('"[" indexer "," indexer "]"')
     def index_bracket(self, p):
-        return ('index_matrix', p[1], p[3])
+        return AST.Index(p[1], p[3])
 
     @_('expr', 'range_expr')
     def indexer(self, p):
@@ -101,58 +111,69 @@ class Mparser(Parser):
 
     @_('expr "," varlist')
     def varlist(self, p):
-        return ('varlist', p.expr, p.varlist)
+        return AST.Varlist(p.expr, p.varlist)
 
     @_('expr', 'expr ","')
     def varlist(self, p):
-        return p.expr
+        return AST.Varlist(p.expr)
 
     # expressions
     @_('expr index_bracket')
     def expr(self, p):
-        return ('index', p.expr, p.index_bracket)
+        return AST.Ref(p.expr, p.index_bracket)
 
     @_('binary')
     def expr(self, p):
         return p[0]
 
+    @_('binary relation_operator unary')
+    def binary(self, p):
+        return AST.RelExpr(p.relation_operator, p.binary, p.unary)
+
     @_('binary binary_operator unary')
     def binary(self, p):
-        return (p[1], p[0], p[2])
+        return AST.NumExpr(p.binary_operator, p.binary, p.unary)
 
     @_('unary')
     def binary(self, p):
         return p.unary
 
-    @_('"+"', '"-"', '"*"', '"/"', '"<"', '">"',
-       'DOTADD', 'DOTSUB', 'DOTMUL', 'DOTDIV',
-       'LE', 'GE', 'NE', 'EQ')
+    @_('"<"', '">"','LE', 'GE', 'NE', 'EQ')
+    def relation_operator(self, p):
+        return p[0]
+
+    @_('"+"', '"-"', '"*"', '"/"',
+       'DOTADD', 'DOTSUB', 'DOTMUL', 'DOTDIV',)
     def binary_operator(self, p):
         return p[0]
 
     @_('"-" unary %prec UMINUS')
     def unary(self, p):
-        return ('-', p.unary)
+        return AST.UnExpr('-', p.unary)
 
     @_('unary "\'" %prec UTRANSPOSE')
     def unary(self, p):
-        return ('\'', p.unary)
+        return AST.UnExpr('\'', p.unary)
 
     @_('primary')
     def unary(self, p):
         return p.primary
 
-    @_('INTNUM', 'FLOATNUM')
+    @_('INTNUM')
     def primary(self, p):
-        return ('num', p[0])
+        return AST.IntNum(p[0])
+
+    @_('FLOATNUM')
+    def primary(self, p):
+        return AST.FloatNum(p[0])
 
     @_('ID')
     def primary(self, p):
-        return ('id', p.ID)
+        return AST.Variable(p.ID)
 
     @_('STRING')
     def primary(self, p):
-        return ('string', p[0])
+        return AST.String(p[0])
 
     @_('"(" expr ")"')
     def primary(self, p):
@@ -160,7 +181,7 @@ class Mparser(Parser):
 
     @_('EYE "(" expr ")"', 'ZEROS "(" expr ")"', 'ONES "(" expr ")"')
     def primary(self, p):
-        return (p[0], p.expr)
+        return AST.FunctionCall(p[0], p.expr)
 
     @_('"[" matrix "]"')
     def primary(self, p):
@@ -169,8 +190,8 @@ class Mparser(Parser):
     # matrix initialization
     @_('varlist ";" matrix')
     def matrix(self, p):
-        return ('matline', p.varlist, p.matrix)
+        return AST.Vector(p.varlist, p.matrix)
 
     @_('varlist', 'varlist ";"')
     def matrix(self, p):
-        return ('matline', p.varlist, None)
+        return AST.Vector(p.varlist)
