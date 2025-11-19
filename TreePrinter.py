@@ -1,4 +1,3 @@
-from operator import add
 import AST
 
 def addToClass(cls):
@@ -41,6 +40,16 @@ class TreePrinter:
         self.left.printTree(indent)
         self.right.printTree(indent)
 
+    @addToClass(AST.Assignment)
+    def printTree(self, indent=0):
+        tprefix(indent)
+        print(self.op)
+
+        indent += 1
+        self.left.printTree(indent)
+        self.right.printTree(indent)
+
+
     @addToClass(AST.Range)
     def printTree(self, indent=0):
         tprefix(indent)
@@ -79,12 +88,12 @@ class TreePrinter:
 
         tprefix(indent)
         print('THEN')
-        self.true_block.printTree(indent+1)
+        self.true_stmt.printTree(indent+1)
 
-        if self.false_block is not None:
+        if self.false_stmt is not None:
             tprefix(indent)
             print('ELSE')
-            self.false_block.printTree(indent+1)
+            self.false_stmt.printTree(indent+1)
 
     @addToClass(AST.WhileLoop)
     def printTree(self, indent=0):
@@ -93,7 +102,7 @@ class TreePrinter:
 
         indent += 1
         self.cond.printTree(indent)
-        self.block.printTree(indent)
+        self.stmt.printTree(indent)
 
     @addToClass(AST.ForLoop)
     def printTree(self, indent=0):
@@ -103,7 +112,7 @@ class TreePrinter:
         indent += 1
         self.name.printTree(indent)
         self.range_expr.printTree(indent)
-        self.block.printTree(indent)
+        self.stmt.printTree(indent)
 
     @addToClass(AST.BreakStatement)
     def printTree(self, indent=0):

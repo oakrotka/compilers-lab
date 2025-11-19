@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Generator, Self
 
 
 # abstract classes
@@ -8,15 +8,19 @@ class Node(object):
 class Statement(Node):
     pass
 
-class Value(Node):
-    pass  # required attributes: value
+class Expr(Node):
+    pass
 
-class BinExpr(Node):
-    def __init__(self, op, left, right) -> None:
-        if type(op) != str: op = op.val
-        self.op = op
-        self.left = left
-        self.right = right
+class Value[T](Expr):
+    def __init__(self, value: T) -> None:
+        self.value = value
+
+class BinExpr(Expr):
+    def __init__(self, op: str, left: Expr, right: Expr) -> None:
+        assert op in self.valid_operators
+        self.op: str = op
+        self.left: Expr = left
+        self.right: Expr = right
 
 class LinkedList[T](Node):
     # required attributes: arg, next_node
@@ -35,75 +39,75 @@ class Varlist[T](LinkedList):
         self.arg = value
         self.next_node = next_node
 
-class Block(LinkedList):
-    def __init__(self, statement: Statement, rest=None) -> None:
+class Block(LinkedList, Statement):
+    def __init__(self, statement: Statement, rest: Self | None = None) -> None:
         self.arg = statement
         self.next_node = rest
 
-class IntNum(Value):
-    def __init__(self, value) -> None:
-        self.value = value
+class IntNum(Value[int]):
+    pass
 
-class FloatNum(Value):
-    def __init__(self, value) -> None:
-        self.value = value
+class FloatNum(Value[float]):
+    pass
 
-class String(Value):
-    def __init__(self, value) -> None:
-        self.value = value
+class String(Value[str]):
+    pass
 
-class Variable(Value):
-    def __init__(self, name) -> None:
-        self.value = name
+class Variable(Value[str]):
+    pass
 
 class Range(Node):
-    def __init__(self, low, high) -> None:
+    def __init__(self, low: Expr, high: Expr) -> None:
         self.low = low
         self.high = high
 
 class Index(Node):
-    def __init__(self, x, y=None) -> None:
+    def __init__(self, x: Expr, y: Expr | None = None) -> None:
         self.x = x
         self.y = y
 
-class Ref(Node):
-    def __init__(self, name, indexer: Index) -> None:
+class Ref(Expr):
+    def __init__(self, name: Variable, indexer: Index) -> None:
         self.name = name
         self.indexer = indexer
 
 class RelExpr(BinExpr):
-    pass
+    valid_operators = ['<', '>', '<=', '>=', '!=', '==']
 
 class NumExpr(BinExpr):
-    pass
+    valid_operators = ['+', '-', '*', '/', '.+', '.-', '.*', './']
 
-class UnExpr(Node):
-    def __init__(self, op, value) -> None:
+class UnExpr(Expr):
+    def __init__(self, op: str, value: Expr) -> None:
+        assert op in ['\'', '-']
         self.op = op
         self.value = value
 
-class Assignment(Statement, BinExpr):
-    def __init__(self, op, assignee, value) -> None:
+class Assignment(Statement):
+    def __init__(self, op: str, assignee: Variable | Ref, value: Expr) -> None:
+        assert op in ['=', '+=', '-=', '*=', '/=']
         self.op = op
         self.left = assignee
         self.right = value
 
 class Conditional(Statement):
-    def __init__(self, cond, true_block, false_block=None) -> None:
+    def __init__(
+        self, cond: Expr, true_stmt: Statement, false_stmt: Statement | None = None
+    ) -> None:
         self.cond = cond
-        self.true_block = true_block
-        self.false_block = false_block
+        self.true_stmt = true_stmt
+        self.false_stmt = false_stmt
 
 class WhileLoop(Statement):
-    def __init__(self, cond, block) -> None:
+    def __init__(self, cond: Expr, stmt: Statement) -> None:
         self.cond = cond
-        self.block = block
+        self.stmt = stmt
 
 class ForLoop(Statement):
-    def __init__(self, name, range_expr: Range, block) -> None:
+    def __init__(self, name: Variable, range_expr: Range, stmt: Statement) -> None:
         self.name = name
         self.range_expr = range_expr
-        self.block = block
+        self.stmt = stmt
 
 class BreakStatement(Statement):
     pass
@@ -119,12 +123,12 @@ class PrintStatement(Statement):
         self.args = varlist
 
 class Vector(LinkedList):
-    def __init__(self, row: Varlist, rest=None) -> None:
+    def __init__(self, row: Varlist, rest: Self | None = None) -> None:
         self.arg = row
         self.next_node = rest
 
-class FunctionCall(Node):
-    def __init__(self, name, arg) -> None:
+class FunctionCall(Expr):
+    def __init__(self, name: str, arg: Expr) -> None:
         self.name = name
         self.arg = arg
 
