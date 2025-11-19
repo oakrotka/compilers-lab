@@ -6,17 +6,17 @@ import AST
 class Mparser(Parser):
     tokens = MLexer.tokens
 
-    # debugfile = 'parser.out'
+    debugfile = 'parser.out'
 
     precedence = (
         ('nonassoc', IFX),
         ('nonassoc', ELSE),
         ('nonassoc', EQ, NE),
         ('nonassoc', "<", ">", LE, GE),
-        ('left', DOTADD, DOTSUB),
-        ('left', '+', '-'),
-        ('left', DOTMUL, DOTDIV),
-        ('left', '*', '/'),
+        ('nonassoc', DOTADD, DOTSUB),
+        ('nonassoc', '+', '-'),
+        ('nonassoc', DOTMUL, DOTDIV),
+        ('nonassoc', '*', '/'),
         ('right', UMINUS),
         ('left', UTRANSPOSE),
     )
