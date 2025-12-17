@@ -24,11 +24,11 @@ class Mparser(Parser):
     # general statement forms
     @_('statement block')
     def block(self, p):
-        return AST.Block(p.statement, p.block)
+        return AST.Block(p.lineno, p.statement, p.block)
 
     @_('statement')
     def block(self, p):
-        return AST.Block(p.statement)
+        return AST.Block(p.lineno, p.statement)
 
     @_('assign ";"', 'instruction ";"', 'named_block')
     def statement(self, p):
@@ -45,48 +45,48 @@ class Mparser(Parser):
 
     @_('WHILE "(" expr ")" statement')
     def while_loop(self, p):
-        return AST.WhileLoop(p.expr, p.statement)
+        return AST.WhileLoop(p.lineno, p.expr, p.statement)
 
     @_('FOR ID "=" range_expr statement')
     def for_loop(self, p):
-        return AST.ForLoop(AST.Variable(p.ID), p.range_expr, p.statement)
+        return AST.ForLoop(p.lineno, p.ID, p.range_expr, p.statement)
 
     @_('IF "(" expr ")" statement %prec IFX')
     def if_stmt(self, p):
-        return AST.Conditional(p.expr, p.statement)
+        return AST.Conditional(p.lineno, p.expr, p.statement)
 
     @_('IF "(" expr ")" statement ELSE statement')
     def if_stmt(self, p):
-        return AST.Conditional(p.expr, p[4], p[6])
+        return AST.Conditional(p.lineno, p.expr, p[4], p[6])
 
     # instructions
     @_('BREAK')
     def instruction(self, p):
-        return AST.BreakStatement()
+        return AST.BreakStatement(p.lineno)
 
     @_('CONTINUE')
     def instruction(self, p):
-        return AST.ContinueStatement()
+        return AST.ContinueStatement(p.lineno)
 
     @_('RETURN')
     def instruction(self, p):
-        return AST.ReturnStatement()
+        return AST.ReturnStatement(p.lineno)
 
     @_('PRINT varlist')
     def instruction(self, p):
-        return AST.PrintStatement(p.varlist)
+        return AST.PrintStatement(p.lineno, p.varlist)
 
     @_('assignee assigner expr')
     def assign(self, p):
-        return AST.Assignment(p.assigner, p.assignee, p.expr)
+        return AST.Assignment(p.lineno, p.assigner, p.assignee, p.expr)
 
     @_('ID')
     def assignee(self, p):
-        return AST.Variable(p.ID)
+        return p.ID
 
     @_('ID index_bracket')
     def assignee(self, p):
-        return AST.Ref(AST.Variable(p.ID), p.index_bracket)
+        return AST.Ref(p.lineno, p.ID, p.index_bracket)
 
     @_('"="', 'ADDASSIGN', 'SUBASSIGN', 'MULASSIGN', 'DIVASSIGN')
     def assigner(self, p):
@@ -95,32 +95,32 @@ class Mparser(Parser):
     # helper/misc constructs
     @_('expr ":" expr')
     def range_expr(self, p):
-        return AST.Range(p[0], p[2])
+        return AST.Range(p.lineno, p[0], p[2])
 
     @_('"[" indexer "]"')
     def index_bracket(self, p):
-        return AST.Index(p.indexer)
+        return AST.Index(p.lineno, p.indexer)
 
     @_('"[" indexer "," indexer "]"')
     def index_bracket(self, p):
-        return AST.Index(p[1], p[3])
+        return AST.Index(p.lineno, p[1], p[3])
 
-    @_('expr', 'range_expr')
+    @_('expr')
     def indexer(self, p):
         return p[0]
 
     @_('expr "," varlist')
     def varlist(self, p):
-        return AST.Varlist(p.expr, p.varlist)
+        return AST.Varlist(p.lineno, p.expr, p.varlist)
 
     @_('expr', 'expr ","')
     def varlist(self, p):
-        return AST.Varlist(p.expr)
+        return AST.Varlist(p.lineno, p.expr)
 
     # expressions
     @_('expr index_bracket')
     def expr(self, p):
-        return AST.Ref(p.expr, p.index_bracket)
+        return AST.Ref(p.lineno, p.expr, p.index_bracket)
 
     @_('binary')
     def expr(self, p):
@@ -128,11 +128,15 @@ class Mparser(Parser):
 
     @_('binary relation_operator unary')
     def binary(self, p):
-        return AST.RelExpr(p.relation_operator, p.binary, p.unary)
+        return AST.RelExpr(p.lineno, p.relation_operator, p.binary, p.unary)
 
     @_('binary binary_operator unary')
     def binary(self, p):
-        return AST.NumExpr(p.binary_operator, p.binary, p.unary)
+        return AST.NumExpr(p.lineno, p.binary_operator, p.binary, p.unary)
+
+    @_('binary matrix_operator unary')
+    def binary(self, p):
+        return AST.MatExpr(p.lineno, p.matrix_operator, p.binary, p.unary)
 
     @_('unary')
     def binary(self, p):
@@ -142,18 +146,21 @@ class Mparser(Parser):
     def relation_operator(self, p):
         return p[0]
 
-    @_('"+"', '"-"', '"*"', '"/"',
-       'DOTADD', 'DOTSUB', 'DOTMUL', 'DOTDIV',)
+    @_('"+"', '"-"', '"*"', '"/"')
     def binary_operator(self, p):
+        return p[0]
+
+    @_('DOTADD', 'DOTSUB', 'DOTMUL', 'DOTDIV')
+    def matrix_operator(self, p):
         return p[0]
 
     @_('"-" unary %prec UMINUS')
     def unary(self, p):
-        return AST.UnExpr('-', p.unary)
+        return AST.UnExpr(p.lineno, '-', p.unary)
 
     @_('unary "\'" %prec UTRANSPOSE')
     def unary(self, p):
-        return AST.UnExpr('\'', p.unary)
+        return AST.UnExpr(p.lineno, '\'', p.unary)
 
     @_('primary')
     def unary(self, p):
@@ -161,19 +168,19 @@ class Mparser(Parser):
 
     @_('INTNUM')
     def primary(self, p):
-        return AST.IntNum(p[0])
+        return AST.IntNum(p.lineno, int(p[0]))
 
     @_('FLOATNUM')
     def primary(self, p):
-        return AST.FloatNum(p[0])
+        return AST.FloatNum(p.lineno, float(p[0]))
 
     @_('ID')
     def primary(self, p):
-        return AST.Variable(p.ID)
+        return AST.Variable(p.lineno, p.ID)
 
     @_('STRING')
     def primary(self, p):
-        return AST.String(p[0])
+        return AST.String(p.lineno, p[0])
 
     @_('"(" expr ")"')
     def primary(self, p):
@@ -181,7 +188,7 @@ class Mparser(Parser):
 
     @_('EYE "(" expr ")"', 'ZEROS "(" expr ")"', 'ONES "(" expr ")"')
     def primary(self, p):
-        return AST.FunctionCall(p[0], p.expr)
+        return AST.FunctionCall(p.lineno, p[0], p.expr)
 
     @_('"[" matrix "]"')
     def primary(self, p):
@@ -190,8 +197,8 @@ class Mparser(Parser):
     # matrix initialization
     @_('varlist ";" matrix')
     def matrix(self, p):
-        return AST.Vector(p.varlist, p.matrix)
+        return AST.Vector(p.lineno, p.varlist, p.matrix)
 
     @_('varlist', 'varlist ";"')
     def matrix(self, p):
-        return AST.Vector(p.varlist)
+        return AST.Vector(p.lineno, p.varlist)

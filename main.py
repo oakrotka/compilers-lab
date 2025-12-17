@@ -1,7 +1,8 @@
 import sys
 from lexer import MLexer
 from parser import Mparser
-import TreePrinter
+import tree_printer
+from type_checker import TypeChecker
 
 def print_parser(p):
     block = False
@@ -16,27 +17,29 @@ def print_parser(p):
 
     p.printTree()
 
-def run(code, lexer, parser):
+def run(code, lexer, parser, checker):
     tokens = list(lexer.tokenize(code))
     # for tok in tokens:
     #     print(f"({tok.lineno}): {tok.type}({tok.value})")
 
     result = parser.parse(t for t in tokens)
     print_parser(result)
+    checker.visit(result)
 
 
 if __name__ == '__main__':
     lexer = MLexer()
     parser = Mparser()
+    checker = TypeChecker()
 
     if len(sys.argv) > 1:
         filename = sys.argv[1]
         with open(filename, "r") as file:
             code = file.read()
-        run(code, lexer, parser)
+        run(code, lexer, parser, checker)
     else:
         while True:
             try:
-                run(input('M> '), lexer, parser)
+                run(input('M> '), lexer, parser, checker)
             except EOFError:
                 break

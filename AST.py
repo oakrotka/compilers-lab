@@ -1,4 +1,4 @@
-from typing import Generator, Self
+from typing import Generator
 
 
 # abstract classes
@@ -6,21 +6,19 @@ class Node(object):
     pass
 
 class Statement(Node):
-    pass
+    def __init__(self, line):
+        self.line = line
 
-class Expr(Node):
-    pass
+class Value(Node):
+    pass  # required attributes: value
 
-class Value[T](Expr):
-    def __init__(self, value: T) -> None:
-        self.value = value
-
-class BinExpr(Expr):
-    def __init__(self, op: str, left: Expr, right: Expr) -> None:
-        assert op in self.valid_operators
-        self.op: str = op
-        self.left: Expr = left
-        self.right: Expr = right
+class BinExpr(Node):
+    def __init__(self, line, op, left, right) -> None:
+        self.line = line
+        if type(op) != str: op = op.val
+        self.op = op
+        self.left = left
+        self.right = right
 
 class LinkedList[T](Node):
     # required attributes: arg, next_node
@@ -35,79 +33,98 @@ class LinkedList[T](Node):
 
 # actual classes
 class Varlist[T](LinkedList):
-    def __init__(self, value: T, next_node=None) -> None:
+    def __init__(self, line, value: T, next_node=None) -> None:
+        self.line = line
         self.arg = value
         self.next_node = next_node
+        self.len = next_node.len + 1 if next_node is not None else 1
 
-class Block(LinkedList, Statement):
-    def __init__(self, statement: Statement, rest: Self | None = None) -> None:
+class Block(LinkedList):
+    def __init__(self, line, statement: Statement, rest=None) -> None:
+        self.line = line
         self.arg = statement
         self.next_node = rest
+        self.len = rest.len + 1 if rest is not None else 1
 
-class IntNum(Value[int]):
-    pass
+class IntNum(Value):
+    def __init__(self, line, value) -> None:
+        self.line = line
+        self.value = value
 
-class FloatNum(Value[float]):
-    pass
+class FloatNum(Value):
+    def __init__(self, line, value) -> None:
+        self.line = line
+        self.value = value
 
-class String(Value[str]):
-    pass
+class String(Value):
+    def __init__(self, line, value) -> None:
+        self.line = line
+        self.value = value
 
-class Variable(Value[str]):
-    pass
+class Variable(Value):
+    def __init__(self, line, name) -> None:
+        self.line = line
+        self.value = name
 
 class Range(Node):
-    def __init__(self, low: Expr, high: Expr) -> None:
+    def __init__(self, line, low, high) -> None:
+        self.line = line
         self.low = low
         self.high = high
 
 class Index(Node):
-    def __init__(self, x: Expr, y: Expr | None = None) -> None:
+    def __init__(self, line, x, y=None) -> None:
+        self.line = line
         self.x = x
         self.y = y
 
-class Ref(Expr):
-    def __init__(self, name: Variable, indexer: Index) -> None:
+class Ref(Node):
+    def __init__(self, line, name, indexer: Index) -> None:
+        self.line = line
         self.name = name
         self.indexer = indexer
 
 class RelExpr(BinExpr):
-    valid_operators = ['<', '>', '<=', '>=', '!=', '==']
+    pass
 
 class NumExpr(BinExpr):
-    valid_operators = ['+', '-', '*', '/', '.+', '.-', '.*', './']
+    pass
 
-class UnExpr(Expr):
-    def __init__(self, op: str, value: Expr) -> None:
-        assert op in ['\'', '-']
+class MatExpr(BinExpr):
+    pass
+
+class UnExpr(Node):
+    def __init__(self, line, op, value) -> None:
+        self.line = line
         self.op = op
         self.value = value
 
-class Assignment(Statement):
-    def __init__(self, op: str, assignee: Variable | Ref, value: Expr) -> None:
-        assert op in ['=', '+=', '-=', '*=', '/=']
+class Assignment(Statement, BinExpr):
+    def __init__(self, line, op, assignee, value) -> None:
+        self.line = line
         self.op = op
         self.left = assignee
         self.right = value
 
 class Conditional(Statement):
-    def __init__(
-        self, cond: Expr, true_stmt: Statement, false_stmt: Statement | None = None
-    ) -> None:
+    def __init__(self, line, cond, true_block, false_block=None) -> None:
+        self.line = line
         self.cond = cond
-        self.true_stmt = true_stmt
-        self.false_stmt = false_stmt
+        self.true_block = true_block
+        self.false_block = false_block
 
 class WhileLoop(Statement):
-    def __init__(self, cond: Expr, stmt: Statement) -> None:
+    def __init__(self, line, cond, block) -> None:
+        self.line = line
         self.cond = cond
-        self.stmt = stmt
+        self.block = block
 
 class ForLoop(Statement):
-    def __init__(self, name: Variable, range_expr: Range, stmt: Statement) -> None:
+    def __init__(self, line, name, range_expr: Range, block) -> None:
+        self.line = line
         self.name = name
         self.range_expr = range_expr
-        self.stmt = stmt
+        self.block = block
 
 class BreakStatement(Statement):
     pass
@@ -119,20 +136,25 @@ class ReturnStatement(Statement):
     pass
 
 class PrintStatement(Statement):
-    def __init__(self, varlist: Varlist) -> None:
+    def __init__(self, line, varlist: Varlist) -> None:
+        self.line = line
         self.args = varlist
 
 class Vector(LinkedList):
-    def __init__(self, row: Varlist, rest: Self | None = None) -> None:
+    def __init__(self, line, row: Varlist, rest=None) -> None:
+        self.line = line
         self.arg = row
         self.next_node = rest
+        self.len = rest.len + 1 if rest is not None else 1
 
-class FunctionCall(Expr):
-    def __init__(self, name: str, arg: Expr) -> None:
+class FunctionCall(Node):
+    def __init__(self, line, name, arg) -> None:
+        self.line = line
         self.name = name
         self.arg = arg
 
 
 class Error(Node):
     def __init__(self) -> None:
+        self.line = line
         pass
