@@ -6,7 +6,7 @@ import AST
 class Mparser(Parser):
     tokens = MLexer.tokens
 
-    debugfile = 'parser.out'
+    # debugfile = 'parser.out'
 
     precedence = (
         ('nonassoc', IFX),
