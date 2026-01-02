@@ -9,7 +9,7 @@ class NodeVisitor(object):
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node)
 
-    def generic_visit(self, node):       # Called if no explicit visitor function exists for a node.
+    def generic_visit(self, node):  # Called if no explicit visitor function exists for a node.
         if isinstance(node, list):
             for elem in node:
                 self.visit(elem)
@@ -81,22 +81,23 @@ class TypeChecker(NodeVisitor):
 
     def visit_Index(self, node):
         type1 = self.visit(node.x)[0]
+        is_index_type = lambda t: t in ['int', 'range']
 
         if node.y is not None:
             type2 = self.visit(node.y)[0]
-            if type1 != 'int' or type2 != 'int':
-                self.fail(node.line, 'both arguments to range must be integers')
+            if not all(map(is_index_type, [type1, type2])):
+                self.fail(node.line, 'index must be an integer or range')
         else:
-            if type1 != 'int':
-                self.fail(node.line, 'index must be an integer')
+            if not is_index_type(type1):
+                self.fail(node.line, 'index must be an integer or range')
 
         return ('index', 1 + (node.y is not None))
 
     def visit_Ref(self, node):
-        type1 = self.symbols.get(node.name)
+        type1 = self.symbols.get(node.id())
         n = self.visit(node.indexer)[1]
         if type1 is None:
-            self.fail(node.line, f'undeclared variable {node.name}')
+            self.fail(node.line, f'undeclared variable {node.id()}')
             return ('int',)
         elif not (n == 1 and type1[0] == 'vector' or n == 2 and type1[0] == 'matrix'):
             self.fail(node.line, f'cannot index {type0[0]} with {n} arguments')
@@ -113,6 +114,11 @@ class TypeChecker(NodeVisitor):
     def visit_NumExpr(self, node):
         type1 = self.visit(node.left)[0]
         type2 = self.visit(node.right)[0]
+
+        if (type1, node.op, type2) in [
+            ('string', '+', 'string'), ('string', '*', 'int'), ('int', '*', 'string')
+        ]: return ('str',)
+
         if not self.is_num(type1) or not self.is_num(type2):
             self.fail(
                 node.line,
@@ -174,8 +180,9 @@ class TypeChecker(NodeVisitor):
                 id = node.left
                 expected = self.symbols.get(id)
             else:
-                id = node.left.name
+                id = node.left.id()
                 expected = self.visit(node.left)
+            assert type(id) == str
 
             if expected == None:
                 self.fail(node.line, f'{id} is undeclared')
@@ -190,10 +197,10 @@ class TypeChecker(NodeVisitor):
         if self.visit(node.cond) != ('int',):
             self.fail(node.line, f'condition of if statement must be of type int')
 
-        self.symbols.push_scope('if')
+        # self.symbols.push_scope('if')
         self.visit(node.true_block)
         if node.false_block != None: self.visit(node.false_block)
-        self.symbols.pop_scope()
+        # self.symbols.pop_scope()
 
     def visit_WhileLoop(self, node):
         if self.visit(node.cond) != ('int',):
@@ -211,7 +218,7 @@ class TypeChecker(NodeVisitor):
         self.symbols.pop_scope()
 
     def visit_BreakStatement(self, node):
-        if 'while' not in self.symbols.scope_names or 'for' not in self.symbols.scope_names:
+        if 'while' not in self.symbols.scope_names and 'for' not in self.symbols.scope_names:
             self.fail(node.line, 'no loop to break out of')
 
     def visit_ContinueStatement(self, node):
@@ -224,7 +231,7 @@ class TypeChecker(NodeVisitor):
     def visit_PrintStatement(self, node):
         for val in node.args.iter():
             type1 = self.visit(val)[0]
-            if type1 not in ['int', 'float', 'string']:
+            if type1 not in ['int', 'float', 'str', 'string', 'vector', 'matrix']:
                 self.fail(node.line, f'cannot print value of type {type1}')
 
     def visit_Vector(self, node):
@@ -257,8 +264,14 @@ class TypeChecker(NodeVisitor):
             return ('matrix', subtype, m, node.len)
 
     def visit_FunctionCall(self, node):
-        type1 = self.visit(node.arg)[0]
-        if type1 != 'int':
-            self.fail(node.line, 'argument to function must be an int')
+        type1 = self.visit(node.arg)
+
+        # strings
+        if not (
+            type1[:2] == ('vector', 'int') and (
+                (node.name == 'eye' and type1[2] == 1) or type1[2] in [1, 2]
+            )
+        ): self.fail(node.line, 'argument to function must be one or two integers')
+
         n = node.arg.value if type(node.arg) == AST.IntNum else None
         return ('matrix', 'int', n, n)
