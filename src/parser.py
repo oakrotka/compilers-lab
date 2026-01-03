@@ -13,11 +13,11 @@ class Mparser(Parser):
         ('nonassoc', ELSE),
         ('nonassoc', EQ, NE),
         ('nonassoc', "<", ">", LE, GE),
-        ('nonassoc', DOTADD, DOTSUB),
-        ('nonassoc', '+', '-'),
-        ('nonassoc', DOTMUL, DOTDIV),
-        ('nonassoc', '*', '/'),
-        ('right', UMINUS),
+        ('left', DOTADD, DOTSUB),
+        ('left', '+', '-'),
+        ('left', DOTMUL, DOTDIV),
+        ('left', '*', '/'),
+        ('left', UMINUS),
         ('left', UTRANSPOSE),
     )
 
@@ -70,7 +70,11 @@ class Mparser(Parser):
 
     @_('RETURN')
     def instruction(self, p):
-        return AST.ReturnStatement(p.lineno)
+        return AST.ReturnStatement(p.lineno, 0)
+
+    @_('RETURN expr')
+    def instruction(self, p):
+        return AST.ReturnStatement(p.lineno, p.expr)
 
     @_('PRINT varlist')
     def instruction(self, p):
@@ -105,7 +109,7 @@ class Mparser(Parser):
     def index_bracket(self, p):
         return AST.Index(p.lineno, p[1], p[3])
 
-    @_('expr')
+    @_('expr', 'range_expr')
     def indexer(self, p):
         return p[0]
 
@@ -126,33 +130,32 @@ class Mparser(Parser):
     def expr(self, p):
         return p[0]
 
-    @_('binary relation_operator unary')
+    @_('binary "<" binary',
+       'binary ">" binary',
+       'binary LE binary',
+       'binary GE binary',
+       'binary NE binary',
+       'binary EQ binary')
     def binary(self, p):
-        return AST.RelExpr(p.lineno, p.relation_operator, p.binary, p.unary)
+        return AST.RelExpr(p.lineno, p[1], p[0], p[2])
 
-    @_('binary binary_operator unary')
+    @_('binary "+" binary',
+       'binary "-" binary',
+       'binary "*" binary',
+       'binary "/" binary')
     def binary(self, p):
-        return AST.NumExpr(p.lineno, p.binary_operator, p.binary, p.unary)
+        return AST.NumExpr(p.lineno, p[1], p[0], p[2])
 
-    @_('binary matrix_operator unary')
+    @_('binary DOTADD binary',
+       'binary DOTSUB binary',
+       'binary DOTMUL binary',
+       'binary DOTDIV binary')
     def binary(self, p):
-        return AST.MatExpr(p.lineno, p.matrix_operator, p.binary, p.unary)
+        return AST.MatExpr(p.lineno, p[1], p[0], p[2])
 
     @_('unary')
     def binary(self, p):
         return p.unary
-
-    @_('"<"', '">"','LE', 'GE', 'NE', 'EQ')
-    def relation_operator(self, p):
-        return p[0]
-
-    @_('"+"', '"-"', '"*"', '"/"')
-    def binary_operator(self, p):
-        return p[0]
-
-    @_('DOTADD', 'DOTSUB', 'DOTMUL', 'DOTDIV')
-    def matrix_operator(self, p):
-        return p[0]
 
     @_('"-" unary %prec UMINUS')
     def unary(self, p):
@@ -186,9 +189,9 @@ class Mparser(Parser):
     def primary(self, p):
         return p.expr
 
-    @_('EYE "(" expr ")"', 'ZEROS "(" expr ")"', 'ONES "(" expr ")"')
+    @_('EYE "(" varlist ")"', 'ZEROS "(" varlist ")"', 'ONES "(" varlist ")"')
     def primary(self, p):
-        return AST.FunctionCall(p.lineno, p[0], p.expr)
+        return AST.FunctionCall(p.lineno, p[0], p.varlist)
 
     @_('"[" matrix "]"')
     def primary(self, p):

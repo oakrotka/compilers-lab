@@ -3,6 +3,7 @@ from lexer import MLexer
 from parser import Mparser
 import tree_printer
 from type_checker import TypeChecker
+from interpreter import Interpreter
 
 def print_parser(p):
     block = False
@@ -19,18 +20,25 @@ def print_parser(p):
 
 def run(code, lexer, parser, checker):
     tokens = list(lexer.tokenize(code))
-    # for tok in tokens:
-    #     print(f"({tok.lineno}): {tok.type}({tok.value})")
+    for tok in tokens:
+        # print(f"({tok.lineno}): {tok.type}({tok.value})")
+        pass
 
-    result = parser.parse(t for t in tokens)
-    print_parser(result)
-    checker.visit(result)
+    ast = parser.parse(t for t in tokens)
+    # print_parser(ast)
+    checker.visit(ast)
+    if checker.correct:
+        try:
+            interpreter.visit(ast)
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == '__main__':
     lexer = MLexer()
     parser = Mparser()
     checker = TypeChecker()
+    interpreter = Interpreter()
 
     if len(sys.argv) > 1:
         filename = sys.argv[1]

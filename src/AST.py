@@ -20,6 +20,9 @@ class BinExpr(Node):
         self.left = left
         self.right = right
 
+    def __repr__(self) -> str:
+        return f'<BinExpr {self.left} {self.op} {self.right}>'
+
 class LinkedList[T](Node):
     # required attributes: arg, next_node
     def iter(self) -> Generator[T]:
@@ -45,6 +48,7 @@ class Block(LinkedList):
         self.arg = statement
         self.next_node = rest
         self.len = rest.len + 1 if rest is not None else 1
+        self.is_child = False
 
 class IntNum(Value):
     def __init__(self, line, value) -> None:
@@ -84,6 +88,19 @@ class Ref(Node):
         self.name = name
         self.indexer = indexer
 
+    def id(self):
+        name = self.name
+        return name if type(name) is str else name.value
+
+    def convert_idx(self, idx):
+        def convert_one(idxer):
+            if type(idxer) == range:
+                return slice(idxer.start - 1, idxer.stop)
+            else:
+                return idxer
+        return tuple(map(convert_one, idx))
+
+
 class RelExpr(BinExpr):
     pass
 
@@ -112,12 +129,16 @@ class Conditional(Statement):
         self.cond = cond
         self.true_block = true_block
         self.false_block = false_block
+        true_block.is_child  = True
+        if false_block is not None:
+            false_block.is_child = True
 
 class WhileLoop(Statement):
     def __init__(self, line, cond, block) -> None:
         self.line = line
         self.cond = cond
         self.block = block
+        block.is_child = True
 
 class ForLoop(Statement):
     def __init__(self, line, name, range_expr: Range, block) -> None:
@@ -125,6 +146,7 @@ class ForLoop(Statement):
         self.name = name
         self.range_expr = range_expr
         self.block = block
+        block.is_child = True
 
 class BreakStatement(Statement):
     pass
@@ -133,7 +155,9 @@ class ContinueStatement(Statement):
     pass
 
 class ReturnStatement(Statement):
-    pass
+    def __init__(self, line, val):
+        self.line = line
+        self.value = val
 
 class PrintStatement(Statement):
     def __init__(self, line, varlist: Varlist) -> None:
