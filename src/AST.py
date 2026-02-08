@@ -31,9 +31,6 @@ class LinkedList[T](Node):
             yield cursor.arg
             cursor = cursor.next_node
 
-    def unwind(self) -> list[T]:
-        return list(self.iter())
-
 # actual classes
 class Varlist[T](LinkedList):
     def __init__(self, line, value: T, next_node=None) -> None:
@@ -95,7 +92,7 @@ class Ref(Node):
     def convert_idx(self, idx):
         def convert_one(idxer):
             if type(idxer) == range:
-                return slice(idxer.start - 1, idxer.stop)
+                return slice(idxer.start, idxer.stop)
             else:
                 return idxer
         return tuple(map(convert_one, idx))

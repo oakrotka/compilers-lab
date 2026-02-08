@@ -186,7 +186,12 @@ class Interpreter(object):
     def visit(self, node):
         # not the fastest way to do this as it retraveses a linked list every time a vector/matrix
         # is instanciated, but it works
-        return np.array(node.unwind())
+
+        contents = [self.visit(val) for val in node.iter()]
+        # looks weird to do this, but this is actually totally reasonable behavior
+        if len(contents) == 1: contents = contents[0]
+
+        return np.array(contents)
 
     @when(AST.FunctionCall)
     def visit(self, node):

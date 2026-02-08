@@ -100,7 +100,7 @@ class TypeChecker(NodeVisitor):
             self.fail(node.line, f'undeclared variable {node.id()}')
             return ('int',)
         elif not (n == 1 and type1[0] == 'vector' or n == 2 and type1[0] == 'matrix'):
-            self.fail(node.line, f'cannot index {type0[0]} with {n} arguments')
+            self.fail(node.line, f'cannot index {type1[0]} with {n} argument{'s' * bool(n-1)}')
         return (type1[1],)
 
 
